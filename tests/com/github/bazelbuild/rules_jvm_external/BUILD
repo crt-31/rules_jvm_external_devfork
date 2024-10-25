@@ -50,7 +50,7 @@ java_test(
     srcs = ["HasherTest.java"],
     test_class = "com.github.bazelbuild.rules_jvm_external.HasherTest",
     deps = [
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external:hasher",
+        "//private/tools/rules_jvm_external:hasher",
         artifact(
             "junit:junit",
             repository_name = "regression_testing",

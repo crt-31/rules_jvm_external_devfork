@@ -6,7 +6,7 @@ java_binary(
     main_class = "com.github.bazelbuild.rules_jvm_external.maven.MavenPublisher",
     visibility = ["//visibility:public"],
     deps = [
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external",
+        "//private/tools/rules_jvm_external",
         artifact(
             "com.google.auth:google-auth-library-oauth2-http",
             repository_name = "rules_jvm_external_deps",

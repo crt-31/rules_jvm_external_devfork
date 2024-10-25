@@ -5,7 +5,7 @@ java_test(
     srcs = ["VersionTest.java"],
     test_class = "com.github.bazelbuild.rules_jvm_external.javadoc.VersionTest",
     deps = [
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/javadoc",
+        "//private/tools/rules_jvm_external/javadoc",
         artifact(
             "junit:junit",
             repository_name = "regression_testing",

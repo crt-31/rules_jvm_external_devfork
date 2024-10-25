@@ -6,7 +6,7 @@ java_library(
         "8",
     ],
     visibility = [
-        "//private/tools/java:__subpackages__",
+        "//private/tools/rules_jvm_external:__subpackages__",
         "//tests/com:__subpackages__",
     ],
 )

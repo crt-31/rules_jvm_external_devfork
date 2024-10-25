@@ -8,8 +8,8 @@ java_binary(
         "//visibility:public",
     ],
     deps = [
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external",
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/zip",
+        "//private/tools/rules_jvm_external",
+        "//private/tools/rules_jvm_external/zip",
     ],
 )
 
@@ -47,7 +47,7 @@ java_binary(
         "//visibility:public",
     ],
     deps = [
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external",
-        "//private/tools/java/com/github/bazelbuild/rules_jvm_external/zip",
+        "//private/tools/rules_jvm_external",
+        "//private/tools/rules_jvm_external/zip",
     ],
 )
