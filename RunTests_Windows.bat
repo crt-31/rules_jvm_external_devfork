@@ -1,0 +1,3 @@
+::Remove tests that don't work on windows (i.e. kotlin), and remove tests that require android sdk.
+
+bazel test -- //tests/... -//tests/unit/kotlin/... -//tests/integration/override_targets -//tests/unit/manifest_stamp:diff_signed_manifest_test -//tests/integration/override_targets/... -//tests/unit/aar_import/... -//tests/unit/jetifier/...
