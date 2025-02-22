@@ -42,6 +42,9 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_plugin")
 load("@rules_jvm_external//private/rules:pin_dependencies.bzl", "pin_dependencies")
 load("@rules_jvm_external//private/rules:jvm_import.bzl", "jvm_import")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_jvm_external//private/windows:bat_binary.bzl", "bat_binary")
+
 {aar_import_statement}
 
 {imports}
@@ -63,7 +66,7 @@ _AAR_IMPORT_STATEMENT = """\
 load("%s", "aar_import")
 """
 
-_BUILD_PIN = """
+_BUILD_PIN_SH = """
 sh_binary(
     name = "pin",
     srcs = ["pin.sh"],
@@ -80,7 +83,21 @@ sh_binary(
 )
 """
 
-_BUILD_OUTDATED = """
+_BUILD_PIN_WIN = """
+bat_binary(
+    name = "pin",
+    src = "pin.bat",
+    args = [
+        "$(rlocationpath :unsorted_deps.json)",
+    ],
+    data = [
+        ":unsorted_deps.json",
+    ],
+    visibility = ["//visibility:public"],
+)
+"""
+
+_BUILD_OUTDATED_SH = """
 sh_binary(
     name = "outdated",
     srcs = ["outdated.sh"],
@@ -93,6 +110,24 @@ sh_binary(
         "$(location @rules_jvm_external//private/tools/prebuilt:outdated_deploy.jar)",
         "$(location outdated.artifacts)",
         "$(location outdated.repositories)",
+    ],
+    visibility = ["//visibility:public"],
+)
+"""
+
+_BUILD_OUTDATED_WIN = """
+bat_binary(
+    name = "outdated",
+    src = "outdated.bat",
+    data = [
+        "@rules_jvm_external//private/tools/prebuilt:outdated_deploy.jar",
+        "outdated.artifacts",
+        "outdated.repositories",
+    ],
+    args = [
+        "$(rlocationpath @rules_jvm_external//private/tools/prebuilt:outdated_deploy.jar)",
+        "$(rlocationpath outdated.artifacts)",
+        "$(rlocationpath outdated.repositories)",
     ],
     visibility = ["//visibility:public"],
 )
@@ -386,15 +421,27 @@ def _add_outdated_files(repository_ctx, artifacts, repositories):
         executable = False,
     )
 
-    repository_ctx.template(
-        "outdated.sh",
-        repository_ctx.attr._outdated,
-        {
-            "{repository_name}": repository_ctx.name,
-            "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
-        },
-        executable = True,
-    )
+    if _is_windows(repository_ctx):
+        repository_ctx.template(
+            "outdated.bat",
+            repository_ctx.attr._outdated_bat,
+            {
+                "{repository_name}": repository_ctx.name,
+                "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
+            },
+            executable = True,
+        )
+    else:
+        repository_ctx.template(
+            "outdated.sh",
+            repository_ctx.attr._outdated,
+            {
+                "{repository_name}": repository_ctx.name,
+                "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
+            },
+            executable = True,
+        )
+    
 
 def is_repin_required(repository_ctx):
     env_var_names = repository_ctx.os.environ.keys()
@@ -562,7 +609,9 @@ def _pinned_coursier_fetch_impl(repository_ctx):
     http_files = [
         "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_file\")",
         "load(\"@bazel_tools//tools/build_defs/repo:utils.bzl\", \"maybe\")",
+        "load(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")",
         "def pinned_maven_install():",
+        "    print(\"dude im here\")",  
         "    pass",  # Keep it syntactically correct in case of empty dependencies.
     ]
     maven_artifacts = []
@@ -647,17 +696,30 @@ def _pinned_coursier_fetch_impl(repository_ctx):
 
     pin_target = generate_pin_target(repository_ctx, unpinned_pin_target)
 
-    repository_ctx.file(
-        "BUILD",
-        (_BUILD + _BUILD_OUTDATED).format(
-            visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
-            repository_name = repository_ctx.name,
-            imports = generated_imports,
-            aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
-            unpinned_pin_target = unpinned_pin_target,
-        ) + pin_target,
-        executable = False,
-    )
+    if _is_windows(repository_ctx):
+        repository_ctx.file(
+            "BUILD",
+            (_BUILD + _BUILD_OUTDATED_WIN).format(
+                visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
+                repository_name = repository_ctx.name,
+                imports = generated_imports,
+                aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
+                unpinned_pin_target = unpinned_pin_target,
+            ) + pin_target,
+            executable = False,
+        )
+    else:
+        repository_ctx.file(
+            "BUILD",
+            (_BUILD + _BUILD_OUTDATED_SH).format(
+                visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
+                repository_name = repository_ctx.name,
+                imports = generated_imports,
+                aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
+                unpinned_pin_target = unpinned_pin_target,
+            ) + pin_target,
+            executable = False,
+        )
 
     _add_outdated_files(repository_ctx, artifacts, repositories)
 
@@ -1306,8 +1368,10 @@ def _coursier_fetch_impl(repository_ctx):
         repository_name = repository_ctx.name
 
         # Add outdated artifact files if this is a pinned repo
-        outdated_build_file_content = _BUILD_OUTDATED
+        outdated_build_file_content = _BUILD_OUTDATED_WIN if _is_windows(repository_ctx) else _BUILD_OUTDATED_SH
         _add_outdated_files(repository_ctx, artifacts, repositories)
+
+    _BUILD_PIN = _BUILD_PIN_WIN if _is_windows(repository_ctx) else _BUILD_PIN_SH
 
     repository_ctx.file(
         "BUILD",
@@ -1344,17 +1408,29 @@ def _coursier_fetch_impl(repository_ctx):
     # $ bazel run @unpinned_maven//:pin
     #
     # Create the maven_install.json export script for unpinned repositories.
-    repository_ctx.template(
-        "pin.sh",
-        repository_ctx.attr._pin,
-        {
-            "{maven_install_location}": "$BUILD_WORKSPACE_DIRECTORY/" + maven_install_location,
-            "{predefined_maven_install}": str(predefined_maven_install),
-            "{repository_name}": repository_name,
-        },
-        executable = True,
-    )
-
+    if(_is_windows(repository_ctx)):
+        repository_ctx.template(
+            "pin.bat",
+            repository_ctx.attr._pin_bat,
+            {
+                "{maven_install_location}": "%BUILD_WORKSPACE_DIRECTORY%\\" + maven_install_location.replace("/", "\\"),
+                
+                "{predefined_maven_install}": str(predefined_maven_install),
+                "{repository_name}": repository_name,
+            },
+        )
+    else:
+        repository_ctx.template(
+            "pin.sh",
+            repository_ctx.attr._pin,
+            {
+                "{maven_install_location}": "$BUILD_WORKSPACE_DIRECTORY/" + maven_install_location,
+                "{predefined_maven_install}": str(predefined_maven_install),
+                "{repository_name}": repository_name,
+            },
+            executable = True,
+        )
+        
     # Generate 'defs.bzl' with just the dependencies for ':pin'.
     http_files = [
         "load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_file\")",
@@ -1396,6 +1472,7 @@ pinned_coursier_fetch = repository_rule(
     attrs = {
         "_compat_repository": attr.label(default = "//private:compat_repository.bzl"),
         "_outdated": attr.label(default = "//private:outdated.sh"),
+        "_outdated_bat": attr.label(default = "//private:outdated.bat"),
         "user_provided_name": attr.string(),
         "resolver": attr.string(doc = "The resolver to use", values = ["coursier", "maven"], default = "coursier"),
         "repositories": attr.string_list(),  # list of repository objects, each as json
@@ -1450,8 +1527,10 @@ coursier_fetch = repository_rule(
         "_index_jar": attr.label(default = "//private/tools/prebuilt:index_jar_deploy.jar"),
         "_lock_file_converter": attr.label(default = "//private/tools/prebuilt:lock_file_converter_deploy.jar"),
         "_pin": attr.label(default = "//private:pin.sh"),
+        "_pin_bat": attr.label(default = "//private:pin.bat"),
         "_compat_repository": attr.label(default = "//private:compat_repository.bzl"),
         "_outdated": attr.label(default = "//private:outdated.sh"),
+        "_outdated_bat": attr.label(default = "//private:outdated.bat"),
         "user_provided_name": attr.string(),
         "repositories": attr.string_list(),  # list of repository objects, each as json
         "artifacts": attr.string_list(),  # list of artifact objects, each as json

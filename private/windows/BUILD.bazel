@@ -1,0 +1,2 @@
+#TODO: Should this be like private or subpatckages visibility\?
+exports_files(["concat_file.bat", "runfiles.bat"], visibility = ["//visibility:public"])

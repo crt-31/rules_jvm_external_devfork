@@ -1,3 +1,7 @@
+load("//private/lib:utils.bzl", "is_windows", "file_to_rlocationpath")
+load("//private/windows:bat_binary.bzl", "bat_binary_action", "BAT_BINARY_IMPLICIT_ATTRS")
+
+
 MavenPublishInfo = provider(
     fields = {
         "coordinates": "Maven coordinates for the project, which may be None",
@@ -9,7 +13,7 @@ MavenPublishInfo = provider(
     },
 )
 
-_TEMPLATE = """#!/usr/bin/env bash
+_TEMPLATE_SH = """#!/usr/bin/env bash
 export MAVEN_REPO="${{MAVEN_REPO:-{maven_repo}}}"
 export GPG_SIGN="${{GPG_SIGN:-{gpg_sign}}}"
 export MAVEN_USER="${{MAVEN_USER:-{user}}}"
@@ -19,6 +23,27 @@ export PGP_SIGNING_KEY="${{PGP_SIGNING_KEY:-{pgp_signing_key}}}"
 export PGP_SIGNING_PWD="${{PGP_SIGNING_PWD:-{pgp_signing_pwd}}}"
 echo Uploading "{coordinates}" to "${{MAVEN_REPO}}"
 {uploader} "{coordinates}" '{pom}' '{artifact}' '{classifier_artifacts}' $@
+"""
+
+_TEMPLATE_WIN = """
+@echo off
+if not defined MAVEN_REPO (set MAVEN_REPO={maven_repo})
+if not defined GPG_SIGN (set GPG_SIGN={gpg_sign})
+if not defined MAVEN_USER (set MAVEN_USER={user} )
+if not defined MAVEN_PASSWORD (set MAVEN_PASSWORD={password} )
+if not defined USE_IN_MEMORY_PGP_KEYS (set USE_IN_MEMORY_PGP_KEYS={use_in_memory_pgp_keys} )
+if not defined PGP_SIGNING_KEY (set PGP_SIGNING_KEY={pgp_signing_key} )
+if not defined PGP_SIGNING_PWD (set PGP_SIGNING_PWD={pgp_signing_key} )
+
+
+call %RUNFILES_LIB% rlocation uploader_path {uploader_rpath}
+call %RUNFILES_LIB% rlocation pom_path {pom_rpath}
+{artifact_rlocation}
+{classifier_rlocations}
+
+
+echo Uploading "{coordinates}" to "%MAVEN_REPO%"
+%uploader_path% "{coordinates}" "%pom_path%" "%artifact_path%" "{classifier_artifacts}"
 """
 
 def _escape_arg(str):
@@ -52,38 +77,74 @@ def _maven_publish_impl(ctx):
         file = target_files[0]
         classifier_artifacts_dict[classifier] = file
 
-    ctx.actions.write(
-        output = executable,
-        is_executable = True,
-        content = _TEMPLATE.format(
-            uploader = ctx.executable._uploader.short_path,
-            coordinates = _escape_arg(coordinates),
-            gpg_sign = _escape_arg(gpg_sign),
-            maven_repo = _escape_arg(maven_repo),
-            password = _escape_arg(password),
-            use_in_memory_pgp_keys = _escape_arg(use_in_memory_pgp_keys),
-            pgp_signing_key = _escape_arg(pgp_signing_key),
-            pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
-            user = _escape_arg(user),
-            pom = ctx.file.pom.short_path,
-            artifact = artifacts_short_path,
-            classifier_artifacts = ",".join(["{}={}".format(classifier, file.short_path) for (classifier, file) in classifier_artifacts_dict.items()]),
-        ),
-    )
-
     files = [ctx.file.pom] + ctx.files.classifier_artifacts
     if ctx.file.artifact:
         files.append(ctx.file.artifact)
 
-    return [
-        DefaultInfo(
+    if is_windows(ctx):
+        def make_rlocation_cmd(ctx, varname, file):
+            return "call %%RUNFILES_LIB%% rlocation %s %s"%(varname, file_to_rlocationpath(ctx, file))
+
+        #Note: Since this is executed during bazel run, all paths should be using rlocationpath and rlocation.
+
+        ctx.actions.write(
+            output = executable,
+            content = _TEMPLATE_WIN.format(
+                uploader_rpath = file_to_rlocationpath(ctx, ctx.executable._uploader),
+                coordinates = _escape_arg(coordinates),
+                gpg_sign = _escape_arg(gpg_sign),
+                maven_repo = _escape_arg(maven_repo),
+                password = _escape_arg(password),
+                use_in_memory_pgp_keys = _escape_arg(use_in_memory_pgp_keys),
+                pgp_signing_key = _escape_arg(pgp_signing_key),
+                pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
+                user = _escape_arg(user),
+                pom_rpath = file_to_rlocationpath(ctx, ctx.file.pom),
+                artifact_rlocation = "" if not ctx.file.artifact else make_rlocation_cmd(ctx, "artifact_path",  ctx.file.artifact),
+                classifier_rlocations  = "\n".join([make_rlocation_cmd(ctx, "classifier_%s_path"%classifier,  file) for (classifier, file) in classifier_artifacts_dict.items()]),
+                classifier_artifacts = ",".join(["%s=%%classifier_%s_path%%"%(classifier, classifier) for (classifier, file) in classifier_artifacts_dict.items()]),
+            ),
+        )
+        #TODO: Allow String as src
+        default_info = bat_binary_action(
+            ctx = ctx,
+            src = executable, 
+            data_files = files,
+            data_targets = [ctx.attr._uploader]
+        )
+
+    else:
+        ctx.actions.write(
+            output = executable,
+            is_executable = True,
+            content = _TEMPLATE_SH.format(
+                uploader = ctx.executable._uploader.short_path,
+                coordinates = _escape_arg(coordinates),
+                gpg_sign = _escape_arg(gpg_sign),
+                maven_repo = _escape_arg(maven_repo),
+                password = _escape_arg(password),
+                use_in_memory_pgp_keys = _escape_arg(use_in_memory_pgp_keys),
+                pgp_signing_key = _escape_arg(pgp_signing_key),
+                pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
+                user = _escape_arg(user),
+                pom = ctx.file.pom.short_path,
+                artifact = artifacts_short_path,
+                classifier_artifacts = ",".join(["{}={}".format(classifier, file.short_path) for (classifier, file) in classifier_artifacts_dict.items()]),
+            ),
+        )
+        default_info = DefaultInfo(
             files = depset([executable]),
             executable = executable,
             runfiles = ctx.runfiles(
                 files = files,
                 collect_data = True,
             ).merge(ctx.attr._uploader[DefaultInfo].data_runfiles),
-        ),
+        )
+        
+
+
+    return [
+        default_info,
         MavenPublishInfo(
             coordinates = coordinates,
             artifact = ctx.file.artifact,
@@ -131,5 +192,5 @@ When signing with GPG, the current default key is used.
             default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/maven:MavenPublisher",
             allow_files = True,
         ),
-    },
+    } | BAT_BINARY_IMPLICIT_ATTRS,
 )
