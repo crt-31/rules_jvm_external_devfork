@@ -154,7 +154,7 @@ pin_dependencies = rule(
         ),
         "_resolver": attr.label(
             executable = True,
-            cfg = "exec",
+            cfg = "target",
             default = "//private/tools/java/com/github/bazelbuild/rules_jvm_external/resolver/cmd:Resolver",
         ),
     } | BAT_BINARY_IMPLICIT_ATTRS,

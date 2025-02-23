@@ -13,9 +13,6 @@ else
   m2local_url="file://${m2local_dir}"
 fi
 
-echo ${m2local_dir}, ${m2local_url}
-
-
 # A simple test framework to verify bazel output without setting up an entire WORKSPACE
 # in the bazel sandbox as is done in https://github.com/bazelbuild/bazel/blob/master/src/test/shell/unittest.bash
 #
