@@ -611,7 +611,6 @@ def _pinned_coursier_fetch_impl(repository_ctx):
         "load(\"@bazel_tools//tools/build_defs/repo:utils.bzl\", \"maybe\")",
         "load(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")",
         "def pinned_maven_install():",
-        "    print(\"dude im here\")",  
         "    pass",  # Keep it syntactically correct in case of empty dependencies.
     ]
     maven_artifacts = []
