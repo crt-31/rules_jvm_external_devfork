@@ -51,7 +51,9 @@ def _escape_arg(str):
     return str.replace('"', "\\\"").replace("$", "\\$")
 
 def _maven_publish_impl(ctx):
-    executable = ctx.actions.declare_file("%s-publisher" % ctx.attr.name)
+    exe_ext = ".bat" if is_windows(ctx) else ""
+
+    executable = ctx.actions.declare_file("%s-publisher%s" % (ctx.attr.name, exe_ext))
 
     maven_repo = ctx.var.get("maven_repo", "")
     gpg_sign = ctx.var.get("gpg_sign", "false")

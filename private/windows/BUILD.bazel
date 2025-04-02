@@ -1,2 +1,22 @@
+load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
+
 #TODO: Should this be like private or subpatckages visibility\?
 exports_files(["concat_file.bat", "runfiles.bat"], visibility = ["//visibility:public"])
+
+bat_launcher_template_cmd = (    
+    "echo @echo off > {OUTFILE} " + 
+    "&& echo goto launcher_start >> {OUTFILE} " +
+    "&& type $(location runfiles.bat) >> {OUTFILE}" +
+    "&& type $(location bat_launcher.bat) >> {OUTFILE}"
+).format(OUTFILE="$(RULEDIR)\\bat_launcher_template.tmpl")
+
+genrule(
+    name="bat_launcher_template",
+    cmd_bat=bat_launcher_template_cmd,
+    outs = ["bat_launcher_template.tmpl"],
+    srcs = [
+        "runfiles.bat",
+        "bat_launcher.bat"
+    ],
+    visibility = ["//visibility:public"],
+)

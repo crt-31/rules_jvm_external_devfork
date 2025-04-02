@@ -81,7 +81,7 @@ def _pin_dependencies_impl(ctx):
     )
 
     if is_windows(ctx):
-        script = ctx.actions.declare_file(ctx.label.name)
+        script = ctx.actions.declare_file(ctx.label.name + ".bat")
         ctx.actions.write(
             script,
             _TEMPLATE_WIN.format(

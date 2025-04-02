@@ -4,10 +4,6 @@ rem ---RUNFILES_LIB---------------------------------------------------
 rem Force MANFIEST_ONLY since Bazel doesn't have a way to know if runfiles are enabled or not (yet).
 set RUNFILES_MANIFEST_ONLY=1
 
-set RUNFILES_LIB=:runfiles_call
-
-goto runfiles_endcode
-
 :runfiles_call
 
 set function_call=%1
@@ -47,6 +43,10 @@ if "%RUNFILES_MANIFEST_ONLY%" == "1" (
 
 :runfiles_rlocation_processresult
 
+if "%result%" == "" (
+  echo %2 NOT FOUND in %RUNFILES_MANIFEST_FILE%
+  exit /b 1 
+)
 set "result=%result:/=\%"
 endlocal & set %1=%result%
 exit /b 0
