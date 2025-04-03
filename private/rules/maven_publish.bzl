@@ -36,8 +36,8 @@ if not defined PGP_SIGNING_KEY (set PGP_SIGNING_KEY={pgp_signing_key} )
 if not defined PGP_SIGNING_PWD (set PGP_SIGNING_PWD={pgp_signing_key} )
 
 
-call %RUNFILES_LIB% rlocation uploader_path {uploader_rpath} || goto eof
-call %RUNFILES_LIB% rlocation pom_path {pom_rpath} || goto eof
+call %BAT_RUNFILES_LIB% rlocation uploader_path {uploader_rpath} || goto eof
+call %BAT_RUNFILES_LIB% rlocation pom_path {pom_rpath} || goto eof
 {artifact_rlocation}
 {classifier_rlocations}
 
@@ -87,7 +87,7 @@ def _maven_publish_impl(ctx):
 
     if is_windows(ctx):
         def make_rlocation_cmd(ctx, varname, file):
-            return "call %%RUNFILES_LIB%% rlocation %s %s"%(varname, file_to_rlocationpath(ctx, file))
+            return "call %%BAT_RUNFILES_LIB%% rlocation %s %s"%(varname, file_to_rlocationpath(ctx, file))
 
         #Note: Since this is executed during bazel run, all paths should be using rlocationpath and rlocation.
 

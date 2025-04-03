@@ -23,8 +23,8 @@ _TEMPLATE_SH = """#!/usr/bin/env bash
 #Note: Win needs to use rlocation for all workspace paths.
 _TEMPLATE_WIN = """
 @echo off
-call %RUNFILES_LIB% rlocation resolver_cmd_path {resolver_cmd_rpath} || goto eof
-call %RUNFILES_LIB% rlocation config_path {config_rpath} || goto eof
+call %BAT_RUNFILES_LIB% rlocation resolver_cmd_path {resolver_cmd_rpath} || goto eof
+call %BAT_RUNFILES_LIB% rlocation config_path {config_rpath} || goto eof
 
 "%resolver_cmd_path%" --argsfile "%config_path%" --resolver {resolver} --input_hash {input_hash} --output "{output}"
 
