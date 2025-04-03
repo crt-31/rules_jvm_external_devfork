@@ -36,14 +36,16 @@ if not defined PGP_SIGNING_KEY (set PGP_SIGNING_KEY={pgp_signing_key} )
 if not defined PGP_SIGNING_PWD (set PGP_SIGNING_PWD={pgp_signing_key} )
 
 
-call %RUNFILES_LIB% rlocation uploader_path {uploader_rpath}
-call %RUNFILES_LIB% rlocation pom_path {pom_rpath}
+call %RUNFILES_LIB% rlocation uploader_path {uploader_rpath} || goto eof
+call %RUNFILES_LIB% rlocation pom_path {pom_rpath} || goto eof
 {artifact_rlocation}
 {classifier_rlocations}
 
 
 echo Uploading "{coordinates}" to "%MAVEN_REPO%"
-%uploader_path% "{coordinates}" "%pom_path%" "%artifact_path%" "{classifier_artifacts}"
+"%uploader_path%" "{coordinates}" "%pom_path%" "%artifact_path%" "{classifier_artifacts}" || goto eof
+
+:eof
 """
 
 def _escape_arg(str):
@@ -91,8 +93,7 @@ def _maven_publish_impl(ctx):
 
         ctx.actions.write(
             output = executable,
-            content = _TEMPLATE_WIN.format(
-                uploader_rpath = file_to_rlocationpath(ctx, ctx.executable._uploader),
+            content = _TEMPLATE_WIN.format(                
                 coordinates = _escape_arg(coordinates),
                 gpg_sign = _escape_arg(gpg_sign),
                 maven_repo = _escape_arg(maven_repo),
@@ -101,13 +102,13 @@ def _maven_publish_impl(ctx):
                 pgp_signing_key = _escape_arg(pgp_signing_key),
                 pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
                 user = _escape_arg(user),
-                pom_rpath = file_to_rlocationpath(ctx, ctx.file.pom),
+                uploader_rpath = file_to_rlocationpath(ctx, ctx.executable._uploader),
+                pom_rpath = file_to_rlocationpath(ctx, ctx.file.pom),                
                 artifact_rlocation = "" if not ctx.file.artifact else make_rlocation_cmd(ctx, "artifact_path",  ctx.file.artifact),
                 classifier_rlocations  = "\n".join([make_rlocation_cmd(ctx, "classifier_%s_path"%classifier,  file) for (classifier, file) in classifier_artifacts_dict.items()]),
                 classifier_artifacts = ",".join(["%s=%%classifier_%s_path%%"%(classifier, classifier) for (classifier, file) in classifier_artifacts_dict.items()]),
             ),
-        )
-        #TODO: Allow String as src
+        )        
         default_info = bat_binary_action(
             ctx = ctx,
             src = executable, 
@@ -119,8 +120,7 @@ def _maven_publish_impl(ctx):
         ctx.actions.write(
             output = executable,
             is_executable = True,
-            content = _TEMPLATE_SH.format(
-                uploader = ctx.executable._uploader.short_path,
+            content = _TEMPLATE_SH.format(                
                 coordinates = _escape_arg(coordinates),
                 gpg_sign = _escape_arg(gpg_sign),
                 maven_repo = _escape_arg(maven_repo),
@@ -129,6 +129,7 @@ def _maven_publish_impl(ctx):
                 pgp_signing_key = _escape_arg(pgp_signing_key),
                 pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
                 user = _escape_arg(user),
+                uploader = ctx.executable._uploader.short_path,
                 pom = ctx.file.pom.short_path,
                 artifact = artifacts_short_path,
                 classifier_artifacts = ",".join(["{}={}".format(classifier, file.short_path) for (classifier, file) in classifier_artifacts_dict.items()]),

@@ -158,6 +158,34 @@ alias(
 )
 """
 
+_PIN_SUCCESS_MSG_PINNED = """Successfully pinned resolved artifacts for @{repository_name}, {maven_install_json_loc} is now up-to-date."""
+
+_PIN_SUCCESS_MSG_UNPINNED = """Successfully pinned resolved artifacts for @{repository_name} in {maven_install_json_loc}.
+This file should be checked into your version control system.
+
+Next, please update your WORKSPACE file by adding the maven_install_json attribute
+and loading pinned_maven_install from @{repository_name}//:defs.bzl.
+
+For example:
+=============================================================
+    
+maven_install(
+     artifacts = # ...,
+     repositories = # ...,
+     maven_install_json = \"@//:{repository_name}_install.json\",
+ )
+
+load("@{repository_name}//:defs.bzl", "pinned_maven_install")
+pinned_maven_install()
+
+=============================================================
+
+To update {repository_name}_install.json, run this command to re-pin the unpinned repository:
+
+     bazel run @unpinned_{repository_name}//:pin
+
+"""
+
 def _is_verbose(repository_ctx):
     return bool(repository_ctx.os.environ.get("RJE_VERBOSE"))
 
@@ -421,24 +449,23 @@ def _add_outdated_files(repository_ctx, artifacts, repositories):
         executable = False,
     )
 
+    outdatedscript_substitutions =  {
+        "{repository_name}": repository_ctx.name,
+        "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
+    }
+
     if _is_windows(repository_ctx):
         repository_ctx.template(
             "outdated.bat",
             repository_ctx.attr._outdated_bat,
-            {
-                "{repository_name}": repository_ctx.name,
-                "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
-            },
+            outdatedscript_substitutions,
             executable = True,
         )
     else:
         repository_ctx.template(
             "outdated.sh",
             repository_ctx.attr._outdated,
-            {
-                "{repository_name}": repository_ctx.name,
-                "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
-            },
+            outdatedscript_substitutions,
             executable = True,
         )
     
@@ -695,30 +722,19 @@ def _pinned_coursier_fetch_impl(repository_ctx):
 
     pin_target = generate_pin_target(repository_ctx, unpinned_pin_target)
 
-    if _is_windows(repository_ctx):
-        repository_ctx.file(
-            "BUILD",
-            (_BUILD + _BUILD_OUTDATED_WIN).format(
-                visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
-                repository_name = repository_ctx.name,
-                imports = generated_imports,
-                aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
-                unpinned_pin_target = unpinned_pin_target,
-            ) + pin_target,
-            executable = False,
-        )
-    else:
-        repository_ctx.file(
-            "BUILD",
-            (_BUILD + _BUILD_OUTDATED_SH).format(
-                visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
-                repository_name = repository_ctx.name,
-                imports = generated_imports,
-                aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
-                unpinned_pin_target = unpinned_pin_target,
-            ) + pin_target,
-            executable = False,
-        )
+    outdated_build_file_content = _BUILD_OUTDATED_WIN if _is_windows(repository_ctx) else _BUILD_OUTDATED_SH
+
+    repository_ctx.file(
+        "BUILD",
+        (_BUILD + outdated_build_file_content).format(
+            visibilities = ",".join(["\"%s\"" % s for s in (["//visibility:public"] if not repository_ctx.attr.strict_visibility else repository_ctx.attr.strict_visibility_value)]),
+            repository_name = repository_ctx.name,
+            imports = generated_imports,
+            aar_import_statement = _get_aar_import_statement_or_empty_str(repository_ctx),
+            unpinned_pin_target = unpinned_pin_target,
+        ) + pin_target,
+        executable = False,
+    )
 
     _add_outdated_files(repository_ctx, artifacts, repositories)
 
@@ -1052,6 +1068,16 @@ def remove_prefix(s, prefix):
     if s.startswith(prefix):
         return s[len(prefix):]
     return s
+
+
+###Builds shell commands for either a bat or sh that outputs the specified msg. (mainly echos)
+def multiline_msg_to_shell(msg, is_windows):
+    blankline = "echo:" if is_windows else "echo \"\"" 
+
+    msg = msg.replace(")", "^)") if is_windows  else msg
+
+    return "".join(["    %s\n"%blankline if s.strip() == "" else "    echo %s\n"%s for s in msg.splitlines()])
+
 
 def _coursier_fetch_impl(repository_ctx):
     # Not using maven_install.json, so we resolve and fetch from scratch.
@@ -1399,7 +1425,7 @@ def _coursier_fetch_impl(repository_ctx):
             maven_install_location = "/".join([package_path, file_name])  # e.g. path/to/some.json
     else:
         # Default maven_install.json file name.
-        maven_install_location = "{repository_name}_install.json"
+        maven_install_location = "%s_install.json"%repository_name
 
     # Expose the script to let users pin the state of the fetch in
     # `<workspace_root>/maven_install.json`.
@@ -1407,26 +1433,39 @@ def _coursier_fetch_impl(repository_ctx):
     # $ bazel run @unpinned_maven//:pin
     #
     # Create the maven_install.json export script for unpinned repositories.
+
+    if(_is_windows(repository_ctx)):
+        maven_install_location = maven_install_location.replace("/", "\\")
+
+    make_success_msg_cmds = lambda msg_template:  multiline_msg_to_shell(
+        msg_template.format(
+            repository_name = repository_name,
+            maven_install_json_loc =  maven_install_location,
+        ), 
+        _is_windows(repository_ctx)
+    )
+
+    
+    pinscript_substitutions = {
+        "{maven_install_location}": "%BUILD_WORKSPACE_DIRECTORY%\\" + maven_install_location,
+        "{predefined_maven_install}": str(predefined_maven_install),
+        "{repository_name}": repository_name,
+        "{success_msg_pinned}": make_success_msg_cmds(_PIN_SUCCESS_MSG_PINNED),
+        "{success_msg_unpinned}": make_success_msg_cmds(_PIN_SUCCESS_MSG_UNPINNED),
+    }
+    
+
     if(_is_windows(repository_ctx)):
         repository_ctx.template(
             "pin.bat",
             repository_ctx.attr._pin_bat,
-            {
-                "{maven_install_location}": "%BUILD_WORKSPACE_DIRECTORY%\\" + maven_install_location.replace("/", "\\"),
-                
-                "{predefined_maven_install}": str(predefined_maven_install),
-                "{repository_name}": repository_name,
-            },
+            pinscript_substitutions,        
         )
     else:
         repository_ctx.template(
             "pin.sh",
             repository_ctx.attr._pin,
-            {
-                "{maven_install_location}": "$BUILD_WORKSPACE_DIRECTORY/" + maven_install_location,
-                "{predefined_maven_install}": str(predefined_maven_install),
-                "{repository_name}": repository_name,
-            },
+            pinscript_substitutions,
             executable = True,
         )
         
