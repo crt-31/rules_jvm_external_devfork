@@ -1,24 +1,22 @@
-load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
+#load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
+load("utils.bzl", "run_binary")
 
 exports_files(["runfiles.bat"], visibility = ["//visibility:public"])
 
 #Create a bat_launcher_template that has the runfiles.bat contents embedded in it. (This simulates having the runfiles 'compiled' into the launcher)
-bat_launcher_template_cmd = (    
-    "echo @echo off > {OUTFILE} " + 
-    "&& echo goto launcher_start >> {OUTFILE} " +
-    "&& echo rem ==START EMBEDDED RUNFILES_LIB===================== >> {OUTFILE} " +
-    "&& type $(location runfiles.bat) >> {OUTFILE}" +
-    "&& echo rem ==END EMBEDDED RUNFILES_LIB===================== >> {OUTFILE} " +
-    "&& type $(location bat_launcher.bat) >> {OUTFILE}"
-).format(OUTFILE="$(RULEDIR)\\bat_launcher_template.tmpl")
-
-genrule(
+# (Use custom run_binary. (Don't use genrule or skylib's run_binary since they undesirably unhermetic system env vars)
+run_binary(
     name="bat_launcher_template",
-    cmd_bat=bat_launcher_template_cmd,
+    tool="bat_launcher_maker.bat",
     outs = ["bat_launcher_template.tmpl"],
     srcs = [
         "runfiles.bat",
         "bat_launcher.bat"
     ],
+    env = {
+        "OUTFILE": "$(execpath bat_launcher_template.tmpl)",
+        "RUNFILE_LIB_PATH": "$(execpath runfiles.bat)",
+        "BATLAUNCHER_PATH": "$(execpath bat_launcher.bat)",        
+    },
     visibility = ["//visibility:public"],
 )

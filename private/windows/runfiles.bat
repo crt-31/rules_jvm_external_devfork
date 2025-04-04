@@ -8,7 +8,7 @@
 ::      args: %1 = name of the binary (used to determine runfiles directory).
 ::      example: call %BAT_RUNFILES_LIB% initialize %~0
 ::   - rlocation <Varname> <rlocationpath>:
-::      Looks up the rlocationpath and sets the Varname Variable to the actual path. 
+::      Looks up the rlocationpath and sets the Varname Variable to the actual path. The path returned will have windows backslashes '\'. 
 ::      args: %1 = Variable Name where the result of the lookup will go. It will have the actual path for the rpathlocation.
 ::            %2 = THe rlocation path that is to be looked up. This should be created using the Bazel make variable $(rlocationpath).
 ::      example: 
