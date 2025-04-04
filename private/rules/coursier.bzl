@@ -354,19 +354,6 @@ def _get_java_proxy_args(repository_ctx):
     no_proxy = repository_ctx.os.environ.get("no_proxy", repository_ctx.os.environ.get("NO_PROXY"))
     return get_java_proxy_args(http_proxy, https_proxy, no_proxy)
 
-def _windows_check(repository_ctx):
-    # TODO(jin): Remove BAZEL_SH usage ASAP. Bazel is going bashless, so BAZEL_SH
-    # will not be around for long.
-    #
-    # On Windows, run msys once to bootstrap it
-    # https://github.com/bazelbuild/rules_jvm_external/issues/53
-    if (_is_windows(repository_ctx)):
-        bash = repository_ctx.os.environ.get("BAZEL_SH")
-        if (bash == None):
-            fail("Please set the BAZEL_SH environment variable to the path of MSYS2 bash. " +
-                 "This is typically `c:\\msys64\\usr\\bin\\bash.exe`. For more information, read " +
-                 "https://docs.bazel.build/versions/master/install-windows.html#getting-bazel")
-
 def _stable_artifact(artifact):
     parsed = json.decode(artifact)
 
@@ -489,8 +476,6 @@ def _pinned_coursier_fetch_impl(repository_ctx):
     if not repository_ctx.attr.maven_install_json:
         fail("Please specify the file label to maven_install.json (e.g." +
              "//:maven_install.json).")
-
-    _windows_check(repository_ctx)
 
     repositories = [json.decode(repository) for repository in repository_ctx.attr.repositories]
 
@@ -1115,8 +1100,6 @@ def _coursier_fetch_impl(repository_ctx):
     )
     if hasher_exec_result.return_code != 0:
         fail("Unable to run coursier: " + hasher_exec_result.stderr)
-
-    _windows_check(repository_ctx)
 
     # Deserialize the spec blobs
     repositories = []
