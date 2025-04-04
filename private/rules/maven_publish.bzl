@@ -113,7 +113,7 @@ def _maven_publish_impl(ctx):
             ctx = ctx,
             src = executable, 
             data_files = files,
-            data_targets = [ctx.attr._uploader]
+            data_defaultinfos = [ctx.attr._uploader[DefaultInfo]]
         )
 
     else:

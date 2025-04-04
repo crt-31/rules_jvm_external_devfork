@@ -100,7 +100,7 @@ def _pin_dependencies_impl(ctx):
             ctx = ctx,
             src = script, 
             data_files = [config_file],
-            data_targets = [ctx.attr._resolver]
+            data_defaultinfos = [ctx.attr._resolver[DefaultInfo]]
         )
     else:
         script = ctx.actions.declare_file(ctx.label.name)

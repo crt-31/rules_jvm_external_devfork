@@ -1,12 +1,14 @@
 load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
 
-#TODO: Should this be like private or subpatckages visibility\?
-exports_files(["concat_file.bat", "runfiles.bat"], visibility = ["//visibility:public"])
+exports_files(["runfiles.bat"], visibility = ["//visibility:public"])
 
+#Create a bat_launcher_template that has the runfiles.bat contents embedded in it. (This simulates having the runfiles 'compiled' into the launcher)
 bat_launcher_template_cmd = (    
     "echo @echo off > {OUTFILE} " + 
     "&& echo goto launcher_start >> {OUTFILE} " +
+    "&& echo rem ==START EMBEDDED RUNFILES_LIB===================== >> {OUTFILE} " +
     "&& type $(location runfiles.bat) >> {OUTFILE}" +
+    "&& echo rem ==END EMBEDDED RUNFILES_LIB===================== >> {OUTFILE} " +
     "&& type $(location bat_launcher.bat) >> {OUTFILE}"
 ).format(OUTFILE="$(RULEDIR)\\bat_launcher_template.tmpl")
 
