@@ -1072,11 +1072,18 @@ def remove_prefix(s, prefix):
 
 ###Builds shell commands for either a bat or sh that outputs the specified msg. (mainly echos)
 def multiline_msg_to_shell(msg, is_windows):
-    blankline = "echo:" if is_windows else "echo \"\"" 
+    blankline = "echo:" if is_windows else "echo \"\""
 
-    msg = msg.replace(")", "^)") if is_windows  else msg
-
-    return "".join(["    %s\n"%blankline if s.strip() == "" else "    echo %s\n"%s for s in msg.splitlines()])
+    def prepare_line(lineIn) :
+        line = lineIn.strip()
+        if(is_windows):
+            line = msg.replace(")", "^)") #add more escapes as needed
+            line = "echo:" if line == "" else "echo %s"%line
+        else:                    
+            line = "echo \"%s\""%line
+        return line
+        
+    return "".join(["    %s\n"% prepare_line(s) for s in msg.splitlines()])
 
 
 def _coursier_fetch_impl(repository_ctx):
@@ -1447,7 +1454,7 @@ def _coursier_fetch_impl(repository_ctx):
 
     
     pinscript_substitutions = {
-        "{maven_install_location}": "%BUILD_WORKSPACE_DIRECTORY%\\" + maven_install_location,
+        "{maven_install_location}": maven_install_location,
         "{predefined_maven_install}": str(predefined_maven_install),
         "{repository_name}": repository_name,
         "{success_msg_pinned}": make_success_msg_cmds(_PIN_SUCCESS_MSG_PINNED),

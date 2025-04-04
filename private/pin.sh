@@ -19,7 +19,7 @@ if [[ ! -e $maven_unsorted_file ]]; then
   maven_unsorted_file="${1#..\/}"
 fi
 if [[ ! -e $maven_unsorted_file ]]; then (echo >&2 "Failed to locate the unsorted_deps.json file: $1" && exit 1) fi
-readonly maven_install_json_loc={maven_install_location}
+readonly maven_install_json_loc=$BUILD_WORKSPACE_DIRECTORY/{maven_install_location}
 
 cp "$maven_unsorted_file" "$maven_install_json_loc"
 

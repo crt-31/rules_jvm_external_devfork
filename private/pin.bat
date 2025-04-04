@@ -1,7 +1,7 @@
 @echo off
 call %BAT_RUNFILES_LIB% rlocation maven_unsorted_file %1 || goto eof
 
-set maven_install_json_loc={maven_install_location}
+set maven_install_json_loc=%BUILD_WORKSPACE_DIRECTORY%\{maven_install_location}
 
 copy /y "%maven_unsorted_file%" "%maven_install_json_loc%" || goto eof
 
