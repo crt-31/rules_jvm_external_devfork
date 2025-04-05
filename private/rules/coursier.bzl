@@ -124,11 +124,13 @@ bat_binary(
     data = [
         "@rules_jvm_external//private/tools/prebuilt:outdated_deploy.jar",
         "outdated.artifacts",
+        "outdated.boms",
         "outdated.repositories",
     ],
     args = [
         "$(rlocationpath @rules_jvm_external//private/tools/prebuilt:outdated_deploy.jar)",
         "$(rlocationpath outdated.artifacts)",
+        "$(rlocationpath outdated.boms)",
         "$(rlocationpath outdated.repositories)",
     ],
     visibility = ["//visibility:public"],
