@@ -17,7 +17,7 @@ load("//private/windows:bat_binary.bzl", "bat_binary_action", "BAT_BINARY_IMPLIC
 
 _TEMPLATE_SH = """#!/usr/bin/env bash
 
-{resolver_cmd} --argsfile {config} --resolver {resolver} --input_hash '{input_hash}' --output $BUILD_WORKSPACE_DIRECTORY/{output}
+{resolver_cmd} --jvm_flags={jvm_flags} --argsfile {config} --resolver {resolver} --input_hash '{input_hash}' --output $BUILD_WORKSPACE_DIRECTORY/{output}
 """
 
 #Note: Win needs to use rlocation for all workspace paths.
@@ -26,7 +26,7 @@ _TEMPLATE_WIN = """
 call %BAT_RUNFILES_LIB% rlocation resolver_cmd_path {resolver_cmd_rpath} || goto eof
 call %BAT_RUNFILES_LIB% rlocation config_path {config_rpath} || goto eof
 
-"%resolver_cmd_path%" --argsfile "%config_path%" --resolver {resolver} --input_hash {input_hash} --output "%BUILD_WORKSPACE_DIRECTORY%\\{output}"
+"%resolver_cmd_path%" --jvm_flags={jvm_flags} --argsfile "%config_path%" --resolver {resolver} --input_hash {input_hash} --output "%BUILD_WORKSPACE_DIRECTORY%\\{output}"
 
 :eof
 """
@@ -93,6 +93,7 @@ def _pin_dependencies_impl(ctx):
                 resolver_cmd_rpath = file_to_rlocationpath(ctx, ctx.executable._resolver),
                 resolver = ctx.attr.resolver,
                 output = ctx.attr.lock_file,
+                jvm_flags = ctx.attr.jvm_flags,
             ),
             is_executable = True,
         )
@@ -112,6 +113,7 @@ def _pin_dependencies_impl(ctx):
                 resolver_cmd = ctx.executable._resolver.short_path,
                 resolver = ctx.attr.resolver,
                 output =  ctx.attr.lock_file,
+                jvm_flags = ctx.attr.jvm_flags,
             ),
             is_executable = True,
         )
@@ -154,6 +156,9 @@ pin_dependencies = rule(
         "lock_file": attr.string(
             doc = "Location of the generated lock file",
             mandatory = True,
+        ),
+        "jvm_flags": attr.string(
+            doc = "JVM flags to pass to resolver",
         ),
         "_resolver": attr.label(
             executable = True,
