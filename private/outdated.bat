@@ -1,3 +1,5 @@
+::IMPORTANT: Keep functionality in this Bat in sync with the bash version (pin.sh)
+
 @echo off
 
 call %BAT_RUNFILES_LIB% rlocation outdated_jar_path %1 || goto eof
