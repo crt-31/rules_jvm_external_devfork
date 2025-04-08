@@ -6,7 +6,7 @@ set RUNFILE_LIB_PATH=%RUNFILE_LIB_PATH:/=\%
 set BATLAUNCHER_PATH=%BATLAUNCHER_PATH:/=\%
 
 ::Make launcher template by combining launcher.bat and runfileslib.bat
-@echo off > %OUTFILE%
+echo @echo off > %OUTFILE%
 echo goto launcher_start >> %OUTFILE%
 echo rem =========START EMBEDDED RUNFILES_LIB===================== >> %OUTFILE%
 type %RUNFILE_LIB_PATH% >> %OUTFILE%
