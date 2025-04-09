@@ -474,7 +474,7 @@ def _add_outdated_files(repository_ctx, artifacts, boms, repositories):
     else:
         repository_ctx.template(
             "outdated.sh",
-            repository_ctx.attr._outdated.sh,
+            repository_ctx.attr._outdated_sh,
             outdatedscript_substitutions,
             executable = True,
         )
