@@ -4,13 +4,15 @@ def _bat_binary_imp(ctx):
     return bat_binary_action(
         ctx = ctx,
         src = ctx.file.src,
-        data_defaultinfos = ctx.attr.data,
+        src_defaultinfo = ctx.attr.src[DefaultInfo],
+        data_defaultinfos = [d[DefaultInfo] for d in ctx.attr.data],
     )
     
 """bat_binary_action: Can be directly by rules to create a bat_binary executable as an action"""
 def bat_binary_action(
     ctx,
     src, #File
+    src_defaultinfo = None, #DefaultInfo or None. for transient runfiles
     data_files = [], #Seq[File]
     data_defaultinfos = [], #Seq[DefaultInfo] (brings in transient runfiles)
 ):
@@ -33,6 +35,9 @@ def bat_binary_action(
         data_item.default_runfiles.merge(ctx.runfiles(data_item.files.to_list()))
         for data_item in data_defaultinfos
     ]
+
+    if(src_defaultinfo != None):
+        data_runfiles_list.append(src_defaultinfo.default_runfiles)
 
     return DefaultInfo(
         executable = launcher,

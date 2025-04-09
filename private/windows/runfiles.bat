@@ -15,6 +15,8 @@
 ::         call %BAT_RUNFILES_LIB% rlocation ActualPath %MyRlocationpath%
 ::         echo %MyRlocationpath% mapped to %ActualPath%
 :: 
+:: NOTE: repo_mapping functionality is not currently implemented. This is OK since this library is currently only used in rules_jvm_external which uses 
+::     rpathlocation for all its paths.  repo_mapping should probably be added to this lib if it is ever used outside rules_jvm_external
 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 :runfiles_call
