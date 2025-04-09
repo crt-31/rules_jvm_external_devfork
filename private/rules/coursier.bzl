@@ -219,6 +219,9 @@ def _shell_quote(s):
     # 47505f644299aa2483d0df06c2bb2c7aa10d26d4.
     return "'" + s.replace("'", "'\\''") + "'"
 
+def _bat_quote(s): #for quoting win args in bat file. escape " with double "".
+    return "\"" + s.replace("\"", "\"\"") + "\""
+
 def _execute(repository_ctx, cmd, timeout = 600, environment = {}, progress_message = None):
     if progress_message:
         repository_ctx.report_progress(progress_message)
@@ -455,9 +458,10 @@ def _add_outdated_files(repository_ctx, artifacts, boms, repositories):
         executable = False,
     )
 
+    quote_func = _bat_quote if _is_windows(repository_ctx) else _shell_quote
     outdatedscript_substitutions =  {
         "{repository_name}": repository_ctx.name,
-        "{proxy_opts}": " ".join([_shell_quote(arg) for arg in _get_java_proxy_args(repository_ctx)]),
+        "{proxy_opts}": " ".join([quote_func(arg) for arg in _get_java_proxy_args(repository_ctx)]),
     }
 
     if _is_windows(repository_ctx):
@@ -470,7 +474,7 @@ def _add_outdated_files(repository_ctx, artifacts, boms, repositories):
     else:
         repository_ctx.template(
             "outdated.sh",
-            repository_ctx.attr._outdated,
+            repository_ctx.attr._outdated.sh,
             outdatedscript_substitutions,
             executable = True,
         )
@@ -1076,9 +1080,10 @@ def remove_prefix(s, prefix):
 
 
 ###Builds shell commands for either a bat or sh that outputs the specified msg. (mainly echos)
+# BAT: non-quoted strings. escape is ^. Blank lines are echo:
+# SH: quoted strings. Blank lines are just echo ""
 def multiline_msg_to_shell(msg, is_windows):
-    blankline = "echo:" if is_windows else "echo \"\""
-
+    
     def prepare_line(lineIn) :
         line = lineIn.strip()
         if(is_windows):
@@ -1474,7 +1479,7 @@ def _coursier_fetch_impl(repository_ctx):
     else:
         repository_ctx.template(
             "pin.sh",
-            repository_ctx.attr._pin,
+            repository_ctx.attr._pin_sh,
             pinscript_substitutions,
             executable = True,
         )
@@ -1519,7 +1524,7 @@ def _coursier_fetch_impl(repository_ctx):
 pinned_coursier_fetch = repository_rule(
     attrs = {
         "_compat_repository": attr.label(default = "//private:compat_repository.bzl"),
-        "_outdated": attr.label(default = "//private:outdated.sh"),
+        "_outdated_sh": attr.label(default = "//private:outdated.sh"),
         "_outdated_bat": attr.label(default = "//private:outdated.bat"),
         "user_provided_name": attr.string(),
         "resolver": attr.string(doc = "The resolver to use", values = ["coursier", "maven"], default = "coursier"),
@@ -1574,10 +1579,10 @@ coursier_fetch = repository_rule(
         "_sha256_hasher": attr.label(default = "//private/tools/prebuilt:hasher_deploy.jar"),
         "_index_jar": attr.label(default = "//private/tools/prebuilt:index_jar_deploy.jar"),
         "_lock_file_converter": attr.label(default = "//private/tools/prebuilt:lock_file_converter_deploy.jar"),
-        "_pin": attr.label(default = "//private:pin.sh"),
+        "_pin_sh": attr.label(default = "//private:pin.sh"),
         "_pin_bat": attr.label(default = "//private:pin.bat"),
         "_compat_repository": attr.label(default = "//private:compat_repository.bzl"),
-        "_outdated": attr.label(default = "//private:outdated.sh"),
+        "_outdated_sh": attr.label(default = "//private:outdated.sh"),
         "_outdated_bat": attr.label(default = "//private:outdated.bat"),
         "user_provided_name": attr.string(),
         "repositories": attr.string_list(),  # list of repository objects, each as json

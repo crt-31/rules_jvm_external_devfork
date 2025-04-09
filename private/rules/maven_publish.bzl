@@ -33,7 +33,7 @@ if not defined MAVEN_USER (set MAVEN_USER={user} )
 if not defined MAVEN_PASSWORD (set MAVEN_PASSWORD={password} )
 if not defined USE_IN_MEMORY_PGP_KEYS (set USE_IN_MEMORY_PGP_KEYS={use_in_memory_pgp_keys} )
 if not defined PGP_SIGNING_KEY (set PGP_SIGNING_KEY={pgp_signing_key} )
-if not defined PGP_SIGNING_PWD (set PGP_SIGNING_PWD={pgp_signing_key} )
+if not defined PGP_SIGNING_PWD (set PGP_SIGNING_PWD={pgp_signing_pwd} )
 
 
 call %BAT_RUNFILES_LIB% rlocation uploader_path {uploader_rpath} || goto eof
@@ -48,7 +48,7 @@ echo Uploading "{coordinates}" to "%MAVEN_REPO%"
 :eof
 """
 
-def _escape_arg(str):
+def _escape_sh_arg(str):
     # Escape a string that will be double quoted in bash and might contain double quotes.
     return str.replace('"', "\\\"").replace("$", "\\$")
 
@@ -94,14 +94,14 @@ def _maven_publish_impl(ctx):
         ctx.actions.write(
             output = executable,
             content = _TEMPLATE_WIN.format(                
-                coordinates = _escape_arg(coordinates),
-                gpg_sign = _escape_arg(gpg_sign),
-                maven_repo = _escape_arg(maven_repo),
-                password = _escape_arg(password),
-                use_in_memory_pgp_keys = _escape_arg(use_in_memory_pgp_keys),
-                pgp_signing_key = _escape_arg(pgp_signing_key),
-                pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
-                user = _escape_arg(user),
+                coordinates = coordinates,
+                gpg_sign = gpg_sign,
+                maven_repo = maven_repo,
+                password = password,
+                use_in_memory_pgp_keys = use_in_memory_pgp_keys,
+                pgp_signing_key = pgp_signing_key,
+                pgp_signing_pwd = pgp_signing_pwd,
+                user = user,
                 uploader_rpath = file_to_rlocationpath(ctx, ctx.executable._uploader),
                 pom_rpath = file_to_rlocationpath(ctx, ctx.file.pom),                
                 artifact_rlocation = "" if not ctx.file.artifact else make_rlocation_cmd(ctx, "artifact_path",  ctx.file.artifact),
@@ -121,14 +121,14 @@ def _maven_publish_impl(ctx):
             output = executable,
             is_executable = True,
             content = _TEMPLATE_SH.format(                
-                coordinates = _escape_arg(coordinates),
-                gpg_sign = _escape_arg(gpg_sign),
-                maven_repo = _escape_arg(maven_repo),
-                password = _escape_arg(password),
-                use_in_memory_pgp_keys = _escape_arg(use_in_memory_pgp_keys),
-                pgp_signing_key = _escape_arg(pgp_signing_key),
-                pgp_signing_pwd = _escape_arg(pgp_signing_pwd),
-                user = _escape_arg(user),
+                coordinates = _escape_sh_arg(coordinates),
+                gpg_sign = _escape_sh_arg(gpg_sign),
+                maven_repo = _escape_sh_arg(maven_repo),
+                password = _escape_sh_arg(password),
+                use_in_memory_pgp_keys = _escape_sh_arg(use_in_memory_pgp_keys),
+                pgp_signing_key = _escape_sh_arg(pgp_signing_key),
+                pgp_signing_pwd = _escape_sh_arg(pgp_signing_pwd),
+                user = _escape_sh_arg(user),
                 uploader = ctx.executable._uploader.short_path,
                 pom = ctx.file.pom.short_path,
                 artifact = artifacts_short_path,
